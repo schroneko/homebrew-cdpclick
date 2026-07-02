@@ -54,8 +54,8 @@ cat >"$plist_path" <<PLIST
 PLIST
 
 plutil -lint "$plist_path"
+launchctl enable "gui/$UID/$label" >/dev/null 2>&1 || true
 launchctl bootstrap "gui/$UID" "$plist_path"
-launchctl enable "gui/$UID/$label"
 open -gj "$app_path" --args --interval 1 --log "$log_dir/actions.log"
 echo "Installed LaunchAgent $label using $app_path"
 echo "Grant Accessibility permission to AutoClickCDPPopup.app in System Settings > Privacy & Security > Accessibility"

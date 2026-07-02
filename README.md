@@ -1,14 +1,14 @@
-# auto-click-cdp-popup
+# cdpclick
 
-`auto-click-cdp-popup` is a small macOS Accessibility watcher that automatically accepts Chrome remote debugging confirmation prompts for trusted local Chrome DevTools Protocol workflows.
+`cdpclick` is a small macOS Accessibility watcher that automatically accepts Chrome remote debugging confirmation prompts for trusted local Chrome DevTools Protocol workflows.
 
 It watches Chrome UI through `AXObserver`, uses a light 1 second fallback scan, and only presses an allow button when the prompt element itself contains Chrome remote debugging text such as `Allow remote debugging?`.
 
 ## Install
 
 ```bash
-brew install schroneko/tap/auto-click-cdp-popup
-auto-click-cdp-popup-install-agent
+brew install --cask schroneko/cdpclick/cdpclick
+cdpclick-install-agent
 ```
 
 After installing the LaunchAgent, grant Accessibility permission to `AutoClickCDPPopup.app` in System Settings:
@@ -17,24 +17,26 @@ After installing the LaunchAgent, grant Accessibility permission to `AutoClickCD
 System Settings -> Privacy & Security -> Accessibility
 ```
 
+The ad-hoc code signature changes on every release, so re-grant the permission after every `brew upgrade`.
+
 ## Usage
-
-Run once in the foreground:
-
-```bash
-auto-click-cdp-popup
-```
 
 Install and start the login agent:
 
 ```bash
-auto-click-cdp-popup-install-agent
+cdpclick-install-agent
 ```
 
 Uninstall the login agent:
 
 ```bash
-auto-click-cdp-popup-uninstall-agent
+cdpclick-uninstall-agent
+```
+
+Run once in the foreground:
+
+```bash
+/Applications/AutoClickCDPPopup.app/Contents/MacOS/auto-click-cdp-popup --once --timeout 30
 ```
 
 ## Options
@@ -55,6 +57,15 @@ Supported options:
 - `--process <name>`: watch an additional macOS process name.
 - `--log <path>`: append timestamped events to a log file.
 - `--prompt-for-accessibility`: ask macOS to show the Accessibility permission prompt once.
+
+## Release
+
+```bash
+scripts/build-app.sh VERSION
+gh release create vVERSION build/AutoClickCDPPopup-VERSION.zip --title "cdpclick VERSION"
+```
+
+Update `version` and `sha256` in `Casks/cdpclick.rb`, then commit and push.
 
 ## Build
 

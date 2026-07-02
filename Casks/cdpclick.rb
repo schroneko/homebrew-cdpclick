@@ -7,8 +7,6 @@ cask "cdpclick" do
   desc "Accessibility watcher that accepts Chrome remote debugging prompts"
   homepage "https://github.com/schroneko/homebrew-cdpclick"
 
-  depends_on macos: ">= :ventura"
-
   app "AutoClickCDPPopup.app"
   binary "#{appdir}/AutoClickCDPPopup.app/Contents/Resources/cdpclick-install-agent"
   binary "#{appdir}/AutoClickCDPPopup.app/Contents/Resources/cdpclick-uninstall-agent"

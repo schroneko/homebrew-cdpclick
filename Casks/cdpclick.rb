@@ -1,6 +1,6 @@
 cask "cdpclick" do
-  version "1.0.0"
-  sha256 "695249b81dfce50b91ac0b6390191fa19ea2ba1a7edda1ba59d178f0f9da7b77"
+  version "1.0.1"
+  sha256 "6183b321ca6f5dada89564a6fdfb303b7e294eb9c2f6d59e285c5ce7bec82854"
 
   url "https://github.com/schroneko/homebrew-cdpclick/releases/download/v#{version}/AutoClickCDPPopup-#{version}.zip"
   name "Auto Click CDP Popup"

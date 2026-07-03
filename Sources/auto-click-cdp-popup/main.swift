@@ -75,6 +75,7 @@ final class Watcher {
             return
         }
         refreshTargets()
+        scanAllTargets()
     }
 
     func startMonitoringIfTrusted() {
@@ -221,6 +222,9 @@ final class Watcher {
 
     func clickPrompt(in element: AXUIElement, depth: Int, context: String) -> String? {
         if depth > 8 {
+            return nil
+        }
+        if stringAttribute(element, kAXRoleAttribute as String) == "AXWebArea" {
             return nil
         }
         for child in children(of: element, attribute: kAXChildrenAttribute as String) {

@@ -51,6 +51,13 @@ cat >"$app_path/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-codesign --force --deep --sign - --identifier "$label" "$app_path"
+signing_identity="${CDPCLICK_SIGNING_IDENTITY:-NiceVoice}"
+if security find-identity -v -p codesigning | fgrep -q "\"$signing_identity\""; then
+  codesign --force --deep --sign "$signing_identity" --identifier "$label" "$app_path"
+  echo "signed with stable identity \"$signing_identity\"; Accessibility grant survives upgrades"
+else
+  codesign --force --deep --sign - --identifier "$label" "$app_path"
+  echo "ad-hoc signed; Accessibility grant must be re-granted after upgrades"
+fi
 ditto -c -k --keepParent "$app_path" "$zip_path"
 shasum -a 256 "$zip_path"

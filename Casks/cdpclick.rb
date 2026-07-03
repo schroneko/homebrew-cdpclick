@@ -31,6 +31,7 @@ cask "cdpclick" do
 
     AutoClickCDPPopup.app requires the macOS Accessibility permission.
     Grant it in System Settings > Privacy & Security > Accessibility.
-    Re-grant it after every upgrade because the ad-hoc code signature changes.
+    If macOS still reports missing permission after an upgrade, remove
+    AutoClickCDPPopup.app from the Accessibility list and add it again.
   EOS
 end

@@ -2,7 +2,7 @@
 
 `cdpclick` is a small macOS Accessibility watcher that automatically accepts Chrome remote debugging confirmation prompts for trusted local Chrome DevTools Protocol workflows.
 
-It watches Chrome UI through `AXObserver`, uses a light 1 second fallback scan, and only presses an allow button when the prompt element itself contains Chrome remote debugging text such as `Allow remote debugging?`.
+It watches Chrome UI through `AXObserver`, uses a light foreground-app fallback scan, and only presses an allow button when the prompt element itself contains Chrome remote debugging text such as `Allow remote debugging?`.
 
 ## Install
 
@@ -17,7 +17,7 @@ After installing the LaunchAgent, grant Accessibility permission to `AutoClickCD
 System Settings -> Privacy & Security -> Accessibility
 ```
 
-The ad-hoc code signature changes on every release, so re-grant the permission after every `brew upgrade`.
+The release app is signed with a stable local identity when available. If macOS keeps reporting missing Accessibility permission after an upgrade, remove `AutoClickCDPPopup.app` from the Accessibility list and add `/Applications/AutoClickCDPPopup.app` again.
 
 ## Usage
 

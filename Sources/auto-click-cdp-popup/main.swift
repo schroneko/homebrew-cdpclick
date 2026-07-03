@@ -45,6 +45,8 @@ final class Watcher {
     var clickCount = 0
     var startedAt = Date()
     var lastRefresh = Date.distantPast
+    var lastActiveScan = Date.distantPast
+    var lastFullScan = Date.distantPast
     var timer: Timer?
     var monitoringStarted = false
     var accessibilityWarningLogged = false
@@ -75,7 +77,8 @@ final class Watcher {
             return
         }
         refreshTargets()
-        scanAllTargets()
+        scanActiveTargets()
+        scanAllTargetsIfDue()
     }
 
     func startMonitoringIfTrusted() {
@@ -175,11 +178,37 @@ final class Watcher {
     }
 
     func scanAllTargets() {
+        lastFullScan = Date()
+        scanTargets(onlyActive: false)
+    }
+
+    func scanActiveTargets() {
+        let now = Date()
+        if now.timeIntervalSince(lastActiveScan) < options.interval {
+            return
+        }
+        lastActiveScan = now
+        scanTargets(onlyActive: true)
+    }
+
+    func scanAllTargetsIfDue() {
+        let now = Date()
+        if now.timeIntervalSince(lastFullScan) < max(5, options.interval * 10) {
+            return
+        }
+        lastFullScan = now
+        scanAllTargets()
+    }
+
+    func scanTargets(onlyActive: Bool) {
         for app in NSWorkspace.shared.runningApplications {
             guard let name = app.localizedName else {
                 continue
             }
             guard options.processes.contains(name) else {
+                continue
+            }
+            if onlyActive && !app.isActive {
                 continue
             }
             let appElement = AXUIElementCreateApplication(app.processIdentifier)

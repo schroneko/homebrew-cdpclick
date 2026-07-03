@@ -39,6 +39,16 @@ Run once in the foreground:
 /Applications/AutoClickCDPPopup.app/Contents/MacOS/auto-click-cdp-popup --once --timeout 30
 ```
 
+## Status Check
+
+Confirm the watcher is running:
+
+```bash
+pgrep -fl AutoClickCDPPopup
+```
+
+Read the last lines of `~/Library/Logs/auto-click-cdp-popup/actions.log`. A healthy watcher logs `started: watching Chrome remote debugging prompts` and `clicked:` entries. Repeated `waiting: Accessibility permission is required` means the Accessibility permission is missing; re-grant it in System Settings.
+
 ## Options
 
 ```bash

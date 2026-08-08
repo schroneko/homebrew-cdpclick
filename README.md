@@ -113,7 +113,14 @@ Calculate the published archive checksum and update both `version` and `sha256` 
 shasum -a 256 build/AutoClickCDPPopup-VERSION.zip
 ```
 
-Run the Cask checks, then commit and push the Cask update. Consumers should run `brew update`, `brew upgrade --cask`, and `cdpclick-install-agent` to receive the release. After installation, verify `brew list --cask --versions cdpclick`, the Caskroom version directory, the app bundle version, and the running process before reporting the update complete.
+Run the Cask checks, then commit and push the Cask update:
+
+```bash
+brew style Casks/cdpclick.rb
+brew audit --cask --strict schroneko/cdpclick/cdpclick
+```
+
+Consumers should run `brew update`, `brew upgrade --cask --no-ask schroneko/cdpclick/cdpclick`, and `cdpclick-install-agent` to receive the release. After installation, verify `brew list --cask --versions cdpclick`, the Caskroom version directory, the app bundle version, and the running process before reporting the update complete.
 
 ## Build
 

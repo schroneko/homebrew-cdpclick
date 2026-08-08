@@ -19,8 +19,10 @@ cask "cdpclick" do
                    sudo: false
   end
 
-  uninstall launchctl: "com.schroneko.auto-click-cdp-popup",
-            quit:      "com.schroneko.auto-click-cdp-popup"
+  uninstall quit:   "com.schroneko.auto-click-cdp-popup",
+            script: {
+              executable: "#{appdir}/AutoClickCDPPopup.app/Contents/Resources/cdpclick-uninstall-agent",
+            }
 
   zap trash: [
     "~/Library/LaunchAgents/com.schroneko.auto-click-cdp-popup.plist",

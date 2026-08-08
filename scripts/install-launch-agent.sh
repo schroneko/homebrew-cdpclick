@@ -35,7 +35,7 @@ cat >"$plist_path" <<PLIST
     <string>$app_path</string>
     <string>--args</string>
     <string>--interval</string>
-    <string>0.5</string>
+    <string>60</string>
     <string>--log</string>
     <string>$log_dir/actions.log</string>
   </array>

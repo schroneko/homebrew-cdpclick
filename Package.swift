@@ -15,6 +15,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "auto-click-cdp-popup"
+        ),
+        .testTarget(
+            name: "auto-click-cdp-popupTests",
+            dependencies: ["auto-click-cdp-popup"]
         )
     ]
 )

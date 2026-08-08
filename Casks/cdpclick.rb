@@ -1,11 +1,13 @@
 cask "cdpclick" do
-  version "1.0.3"
-  sha256 "a034d8772c828e432304f23e83b73d5701801563c3c4243e398762bba093b5a1"
+  version "1.0.4"
+  sha256 "459801bfbcc1d6a1168142e627d57383ba9c930354a8cfde201b523e1ee277dc"
 
   url "https://github.com/schroneko/homebrew-cdpclick/releases/download/v#{version}/AutoClickCDPPopup-#{version}.zip"
   name "Auto Click CDP Popup"
   desc "Accessibility watcher that accepts Chrome remote debugging prompts"
   homepage "https://github.com/schroneko/homebrew-cdpclick"
+
+  depends_on :macos
 
   app "AutoClickCDPPopup.app"
   binary "#{appdir}/AutoClickCDPPopup.app/Contents/Resources/cdpclick-install-agent"

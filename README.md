@@ -26,6 +26,23 @@ brew install --cask schroneko/cdpclick/cdpclick
 cdpclick-install-agent
 ```
 
+Homebrew is the only supported installation and upgrade path. For an existing installation, update the tap and upgrade the Cask:
+
+```bash
+brew update
+brew upgrade --cask --no-ask schroneko/cdpclick/cdpclick
+cdpclick-install-agent
+```
+
+If the installed version is already the desired release and the app needs to be restored, use a Cask reinstall:
+
+```bash
+brew reinstall --cask --no-ask schroneko/cdpclick/cdpclick
+cdpclick-install-agent
+```
+
+Do not copy, move, or overlay a build artifact directly into `/Applications`. Do not replace a Homebrew-managed app with a same-version local build. Publish a new release and update the Cask before upgrading through Homebrew.
+
 After installing the LaunchAgent, grant Accessibility permission to `AutoClickCDPPopup.app` in System Settings:
 
 ```text
@@ -90,7 +107,13 @@ scripts/build-app.sh VERSION
 gh release create vVERSION build/AutoClickCDPPopup-VERSION.zip --title "cdpclick VERSION"
 ```
 
-Update `version` and `sha256` in `Casks/cdpclick.rb`, then commit and push.
+Calculate the published archive checksum and update both `version` and `sha256` in `Casks/cdpclick.rb`:
+
+```bash
+shasum -a 256 build/AutoClickCDPPopup-VERSION.zip
+```
+
+Run the Cask checks, then commit and push the Cask update. Consumers should run `brew update`, `brew upgrade --cask`, and `cdpclick-install-agent` to receive the release. After installation, verify `brew list --cask --versions cdpclick`, the Caskroom version directory, the app bundle version, and the running process before reporting the update complete.
 
 ## Build
 

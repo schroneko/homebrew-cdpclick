@@ -23,6 +23,8 @@ Localized headline, detail, provenance, and button values are loaded from the Co
 
 The offline notarization wording reports Apple's cached result as of the date shown by macOS; it is not a fresh online revocation or malware check.
 
+Each native element is visited at most once per window scan. Cyclic Accessibility references cannot repeatedly expand the same subtree. Chrome menu bars and menu items are excluded because they cannot contain the native approval dialog.
+
 ## Install
 
 ```bash

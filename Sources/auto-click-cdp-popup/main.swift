@@ -23,6 +23,13 @@ struct Options {
 }
 
 enum CDPMatchPolicy {
+    static func shouldTraverse(role: String) -> Bool {
+        !role.isEmpty && role != "AXWebArea"
+            && role != kAXMenuBarRole as String
+            && role != kAXMenuRole as String
+            && role != kAXMenuItemRole as String
+    }
+
     static func canCarryTarget(role: String) -> Bool {
         role == kAXStaticTextRole as String
             || role == kAXHeadingRole as String
@@ -87,6 +94,29 @@ struct CDPSubtreeResult {
     var target: String?
     var button: AXUIElement?
     var match: CDPPromptMatch?
+}
+
+struct AXElementIdentity: Hashable {
+    let element: AXUIElement
+
+    static func == (lhs: AXElementIdentity, rhs: AXElementIdentity) -> Bool {
+        CFEqual(lhs.element, rhs.element)
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(CFHash(element))
+    }
+}
+
+struct CDPTraversalState {
+    private var visited = Set<AXElementIdentity>()
+
+    mutating func enter(_ element: AXUIElement, depth: Int) -> Bool {
+        guard depth <= 24 else {
+            return false
+        }
+        return visited.insert(AXElementIdentity(element: element)).inserted
+    }
 }
 
 struct RecentButtonPress {
@@ -799,12 +829,21 @@ final class Watcher {
     }
 
     func findCDPPrompt(in element: AXUIElement, depth: Int) -> CDPSubtreeResult {
-        guard depth <= 24 else {
+        var traversal = CDPTraversalState()
+        return findCDPPrompt(in: element, depth: depth, traversal: &traversal)
+    }
+
+    func findCDPPrompt(
+        in element: AXUIElement,
+        depth: Int,
+        traversal: inout CDPTraversalState
+    ) -> CDPSubtreeResult {
+        guard traversal.enter(element, depth: depth) else {
             return CDPSubtreeResult()
         }
         configureCDPElement(element)
         let role = stringAttribute(element, kAXRoleAttribute as String)
-        guard !role.isEmpty, role != "AXWebArea" else {
+        guard CDPMatchPolicy.shouldTraverse(role: role) else {
             return CDPSubtreeResult()
         }
 
@@ -818,7 +857,7 @@ final class Watcher {
         }
 
         for child in children(of: element, attribute: kAXChildrenAttribute as String) {
-            let childResult = findCDPPrompt(in: child, depth: depth + 1)
+            let childResult = findCDPPrompt(in: child, depth: depth + 1, traversal: &traversal)
             if let match = childResult.match {
                 return CDPSubtreeResult(match: match)
             }

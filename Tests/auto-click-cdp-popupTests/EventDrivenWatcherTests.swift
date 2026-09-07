@@ -3,6 +3,26 @@ import XCTest
 @testable import auto_click_cdp_popup
 
 final class EventDrivenWatcherTests: XCTestCase {
+    func testTraversalRejectsCyclesAndEqualReferencesButResetsBetweenScans() {
+        let element = AXUIElementCreateApplication(101)
+        let equalReference = AXUIElementCreateApplication(101)
+        var traversal = CDPTraversalState()
+        XCTAssertTrue(traversal.enter(element, depth: 0))
+        XCTAssertFalse(traversal.enter(equalReference, depth: 1))
+        XCTAssertTrue(traversal.enter(AXUIElementCreateApplication(102), depth: 1))
+        var nextScan = CDPTraversalState()
+        XCTAssertTrue(nextScan.enter(element, depth: 0))
+    }
+
+    func testTraversalExcludesWebContentsAndNativeMenus() {
+        for role in ["AXWebArea", kAXMenuBarRole as String, kAXMenuRole as String, kAXMenuItemRole as String] {
+            XCTAssertFalse(CDPMatchPolicy.shouldTraverse(role: role))
+        }
+        for role in [kAXWindowRole as String, kAXGroupRole as String, kAXSheetRole as String, kAXButtonRole as String] {
+            XCTAssertTrue(CDPMatchPolicy.shouldTraverse(role: role))
+        }
+    }
+
     func testDefaultWatchdogIntervalIsSixtySeconds() {
         XCTAssertEqual(Options().interval, 60)
     }

@@ -2,7 +2,11 @@
 
 `cdpclick` is a small macOS Accessibility watcher that automatically accepts Chrome remote debugging confirmation prompts for trusted local Chrome DevTools Protocol workflows and opens the first-launch Gatekeeper confirmation for apps downloaded by Homebrew Cask.
 
-It watches UI through `AXObserver`, follows process restarts, and uses a low-frequency fallback scan for missed notifications. The existing Chrome rule only presses an allow button when the prompt element itself contains Chrome remote debugging text such as `Allow remote debugging?`.
+It watches UI through `AXObserver`, follows process restarts, and independently checks Chrome prompts every 250 milliseconds even if no notification arrives. A separate low-frequency maintenance scan refreshes observers and checks Gatekeeper. The Chrome rule only presses an allow button when the prompt element itself contains Chrome remote debugging text such as `Allow remote debugging?`.
+
+Chrome notifications trigger an immediate check followed by short retries while the prompt becomes ready. A prompt that remains present can be retried every 500 milliseconds; two failed attempts no longer suppress it for five minutes. Disappearance is confirmed only when the Accessibility element is invalid, not when an Accessibility request temporarily fails. Completion timing in the log starts at first detection, not at the moment Chrome displayed the prompt.
+
+Loss of Accessibility permission clears the monitoring state. Monitoring is rebuilt when permission returns. These mechanisms target a response within one second while macOS and Chrome are responsive; they cannot provide a hard deadline while the machine is asleep, permission is unavailable, or Accessibility requests are stalled. Web page contents are excluded from Chrome prompt matching.
 
 The Homebrew Gatekeeper rule is independent from the Chrome targets and buttons. It only presses the system-localized Open button when every condition below is satisfied:
 
@@ -93,7 +97,7 @@ Supported options:
 
 - `--once`: exit after the first click.
 - `--dry-run`: report matches without clicking.
-- `--interval <seconds>`: full fallback scan interval for notifications missed by `AXObserver`. Default is `60`.
+- `--interval <seconds>`: full maintenance and Gatekeeper scan interval. Default is `60`. Independent Chrome checks remain at 250 milliseconds.
 - `--timeout <seconds>`: exit after a timeout.
 - `--max-clicks <count>`: exit after a number of clicks.
 - `--process <name>`: watch an additional macOS process name.

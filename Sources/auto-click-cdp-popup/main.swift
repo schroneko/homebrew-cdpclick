@@ -39,13 +39,17 @@ enum CDPMatchPolicy {
 }
 
 enum CDPPressPolicy {
-    static let burstDelays: [TimeInterval] = [0.075, 0.150, 0.300, 0.650, 0.900]
+    static let burstDelays: [TimeInterval] = [0, 0.075, 0.150, 0.300, 0.650, 0.900]
+    static let reconciliationInterval: TimeInterval = 0.250
+    static let messagingTimeout: Float = 0.050
     static let retryInterval: TimeInterval = 0.500
-    static let maximumAttempts = 2
 
     static func shouldSuppress(attempts: Int, elapsedSinceLastAttempt: TimeInterval) -> Bool {
-        attempts >= maximumAttempts
-            || attempts > 0 && elapsedSinceLastAttempt < retryInterval
+        attempts > 0 && elapsedSinceLastAttempt < retryInterval
+    }
+
+    static func confirmsDisappearance(_ result: AXError) -> Bool {
+        result == .invalidUIElement || result == .invalidUIElementObserver
     }
 }
 
@@ -87,7 +91,8 @@ struct CDPSubtreeResult {
 
 struct RecentButtonPress {
     let button: AXUIElement
-    var lastDate: Date
+    let firstDetection: TimeInterval
+    var lastAttempt: TimeInterval
     var attempts: Int
 }
 
@@ -110,6 +115,8 @@ enum LocalRootResolution {
 
 final class Watcher {
     let options: Options
+    let isTrusted: () -> Bool
+    let runningApplications: () -> [NSRunningApplication]
     let gatekeeperRule = GatekeeperRule(localizations: GatekeeperLocalizationCatalog.load())
     let targets = [
         "Chrome DevTools Protocol",
@@ -153,6 +160,7 @@ final class Watcher {
     var localBursts: [LocalBurst] = []
     var clickCount = 0
     var timer: Timer?
+    var reconciliationTimer: Timer?
     var timeoutTimer: Timer?
     var accessibilityTimer: Timer?
     var monitoringStarted = false
@@ -162,8 +170,16 @@ final class Watcher {
     var recentButtonPresses: [RecentButtonPress] = []
     var recentGatekeeperAttempts: [String: Date] = [:]
 
-    init(options: Options) {
+    init(
+        options: Options,
+        isTrusted: @escaping () -> Bool = { AXIsProcessTrusted() },
+        runningApplications: @escaping () -> [NSRunningApplication] = {
+            NSWorkspace.shared.runningApplications
+        }
+    ) {
         self.options = options
+        self.isTrusted = isTrusted
+        self.runningApplications = runningApplications
     }
 
     func run() {
@@ -171,6 +187,7 @@ final class Watcher {
         observeRunningApplications()
         startMonitoringIfTrusted()
         scheduleWatchdog()
+        scheduleReconciliation()
         RunLoop.current.run()
     }
 
@@ -224,12 +241,47 @@ final class Watcher {
         guard monitoringStarted else {
             return
         }
-        refreshTargets(applications: NSWorkspace.shared.runningApplications)
+        refreshTargets(applications: runningApplications())
         scanAllTargets()
     }
 
+    func scheduleReconciliation() {
+        let timer = Timer(timeInterval: CDPPressPolicy.reconciliationInterval, repeats: true) {
+            [weak self] _ in self?.reconcileCDP()
+        }
+        timer.tolerance = 0.010
+        RunLoop.current.add(timer, forMode: .default)
+        reconciliationTimer = timer
+    }
+
+    func reconcileCDP(scan: ((pid_t) -> String?)? = nil) {
+        startMonitoringIfTrusted()
+        guard monitoringStarted else {
+            return
+        }
+        confirmCompletedPresses()
+        let scan = scan ?? scanCDPWindows
+        for pid in processKinds.keys.sorted() where processKinds[pid] == .cdp {
+            if let result = scan(pid) {
+                handleClickResult(result)
+            }
+        }
+    }
+
+    func stopMonitoring() {
+        monitoringStarted = false
+        for pid in Set(processKinds.keys).union(observers.keys) {
+            removeTarget(pid: pid)
+        }
+        processKinds.removeAll()
+        recentButtonPresses.removeAll()
+    }
+
     func startMonitoringIfTrusted() {
-        guard AXIsProcessTrusted() else {
+        guard isTrusted() else {
+            if monitoringStarted {
+                stopMonitoring()
+            }
             requestAccessibilityPermissionOnce()
             scheduleAccessibilityCheck()
             if !accessibilityWarningLogged || Date().timeIntervalSince(lastAccessibilityLog) >= 60 {
@@ -245,8 +297,9 @@ final class Watcher {
         accessibilityTimer?.invalidate()
         accessibilityTimer = nil
         monitoringStarted = true
+        accessibilityWarningLogged = false
         log("started: watching Chrome CDP prompts and Homebrew Gatekeeper confirmations")
-        refreshTargets(applications: NSWorkspace.shared.runningApplications)
+        refreshTargets(applications: runningApplications())
     }
 
     func scheduleAccessibilityCheck() {
@@ -317,10 +370,17 @@ final class Watcher {
             burst.stopped = true
         }
         localBursts.removeAll { $0.pid == pid }
+        recentButtonPresses.removeAll {
+            var buttonPID: pid_t = 0
+            return AXUIElementGetPid($0.button, &buttonPID) == .success && buttonPID == pid
+        }
     }
 
     func observe(pid: pid_t) {
         let appElement = AXUIElementCreateApplication(pid)
+        if processKinds[pid] == .cdp {
+            configureCDPElement(appElement)
+        }
         let refcon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         var createdObserver = false
 
@@ -391,7 +451,13 @@ final class Watcher {
         let resolvedRefcon = refcon
             ?? UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         let appElement = AXUIElementCreateApplication(pid)
+        if processKinds[pid] == .cdp {
+            configureCDPElement(appElement)
+        }
         for window in children(of: appElement, attribute: kAXWindowsAttribute as String) {
+            if processKinds[pid] == .cdp {
+                configureCDPElement(window)
+            }
             for notification in windowNotifications {
                 addNotification(
                     observer: observer,
@@ -470,6 +536,10 @@ final class Watcher {
     }
 
     func handle(element: AXUIElement, notification: String) {
+        startMonitoringIfTrusted()
+        guard monitoringStarted else {
+            return
+        }
         guard applicationNotifications.contains(notification) else {
             return
         }
@@ -492,6 +562,9 @@ final class Watcher {
     func localBurstRoot(for element: AXUIElement, pid: pid_t) -> LocalRootResolution {
         var current = element
         for _ in 0..<24 {
+            if processKinds[pid] == .cdp {
+                configureCDPElement(current)
+            }
             let role = stringAttribute(current, kAXRoleAttribute as String)
             if role.isEmpty {
                 return .retryFromApplication
@@ -504,6 +577,9 @@ final class Watcher {
             }
             if role == kAXApplicationRole as String {
                 let appElement = AXUIElementCreateApplication(pid)
+                if processKinds[pid] == .cdp {
+                    configureCDPElement(appElement)
+                }
                 guard let focusedWindow = elementAttribute(
                     appElement,
                     attribute: kAXFocusedWindowAttribute as String
@@ -525,6 +601,9 @@ final class Watcher {
 
     func scheduleCurrentWindowBursts(pid: pid_t) {
         let appElement = AXUIElementCreateApplication(pid)
+        if processKinds[pid] == .cdp {
+            configureCDPElement(appElement)
+        }
         for window in children(of: appElement, attribute: kAXWindowsAttribute as String) {
             scheduleLocalBurst(pid: pid, root: window)
         }
@@ -557,10 +636,11 @@ final class Watcher {
     }
 
     func runLocalBurst(_ burst: LocalBurst, isLast: Bool) {
+        startMonitoringIfTrusted()
         guard !burst.stopped else {
             return
         }
-        guard processKinds[burst.pid] != nil else {
+        guard monitoringStarted, processKinds[burst.pid] != nil else {
             stopLocalBurst(burst)
             return
         }
@@ -604,7 +684,9 @@ final class Watcher {
 
     func scanCDPWindows(pid: pid_t) -> String? {
         let appElement = AXUIElementCreateApplication(pid)
+        configureCDPElement(appElement)
         for window in children(of: appElement, attribute: kAXWindowsAttribute as String) {
+            configureCDPElement(window)
             if let result = clickPrompt(in: window, context: label(of: window)) {
                 return result
             }
@@ -618,6 +700,7 @@ final class Watcher {
     }
 
     func isInvalid(element: AXUIElement, expectedPID: pid_t) -> Bool {
+        configureCDPElement(element)
         var pid: pid_t = 0
         let pidResult = AXUIElementGetPid(element, &pid)
         if pidResult == .invalidUIElement || pidResult == .invalidUIElementObserver {
@@ -640,7 +723,7 @@ final class Watcher {
     }
 
     func scanTargets() {
-        for app in NSWorkspace.shared.runningApplications {
+        for app in runningApplications() {
             if isGatekeeperAgent(app) {
                 if let result = scanHomebrewGatekeeper(app: app) {
                     handleClickResult(result)
@@ -655,7 +738,9 @@ final class Watcher {
                 continue
             }
             let appElement = AXUIElementCreateApplication(app.processIdentifier)
+            configureCDPElement(appElement)
             for window in children(of: appElement, attribute: kAXWindowsAttribute as String) {
+                configureCDPElement(window)
                 if let result = clickPrompt(in: window, context: "\(name) / \(label(of: window))") {
                     handleClickResult(result)
                     return
@@ -677,31 +762,35 @@ final class Watcher {
         }
     }
 
-    func matchedTarget(in element: AXUIElement) -> String? {
-        let role = stringAttribute(element, kAXRoleAttribute as String)
+    func matchedTarget(in element: AXUIElement, role: String) -> String? {
         guard CDPMatchPolicy.canCarryTarget(role: role) else {
             return nil
         }
-        let values = [
-            stringAttribute(element, kAXTitleAttribute as String),
-            stringAttribute(element, kAXDescriptionAttribute as String),
-            stringAttribute(element, kAXValueAttribute as String),
-            stringAttribute(element, kAXHelpAttribute as String)
-        ]
+        let attributes = [kAXTitleAttribute, kAXDescriptionAttribute, kAXValueAttribute, kAXHelpAttribute]
+        var attributeValues: CFArray?
+        guard AXUIElementCopyMultipleAttributeValues(
+            element,
+            attributes as CFArray,
+            [],
+            &attributeValues
+        ) == .success, let attributeValues else {
+            return nil
+        }
+        let values = (attributeValues as [AnyObject]).compactMap { $0 as? String }
         let currentText = values.joined(separator: " ")
         return targets.first(where: {
             currentText.localizedCaseInsensitiveContains($0)
         })
     }
 
-    func canCombineCDPTargetAndButton(in element: AXUIElement) -> Bool {
-        let role = stringAttribute(element, kAXRoleAttribute as String)
-        let subrole = stringAttribute(element, kAXSubroleAttribute as String)
+    func canCombineCDPTargetAndButton(in element: AXUIElement, role: String) -> Bool {
+        let subrole = role == kAXGroupRole as String
+            ? stringAttribute(element, kAXSubroleAttribute as String) : ""
         return CDPMatchPolicy.canCombineTargetAndButton(role: role, subrole: subrole)
     }
 
-    func isAllowedCDPButton(_ element: AXUIElement) -> Bool {
-        guard stringAttribute(element, kAXRoleAttribute as String) == kAXButtonRole as String else {
+    func isAllowedCDPButton(_ element: AXUIElement, role: String) -> Bool {
+        guard role == kAXButtonRole as String else {
             return false
         }
         let buttonLabel = label(of: element)
@@ -713,16 +802,18 @@ final class Watcher {
         guard depth <= 24 else {
             return CDPSubtreeResult()
         }
-        guard stringAttribute(element, kAXRoleAttribute as String) != "AXWebArea" else {
+        configureCDPElement(element)
+        let role = stringAttribute(element, kAXRoleAttribute as String)
+        guard !role.isEmpty, role != "AXWebArea" else {
             return CDPSubtreeResult()
         }
 
         var result = CDPSubtreeResult()
-        if let target = matchedTarget(in: element) {
+        if let target = matchedTarget(in: element, role: role) {
             result.containsTarget = true
             result.target = target
         }
-        if isAllowedCDPButton(element) {
+        if isAllowedCDPButton(element, role: role) {
             result.button = element
         }
 
@@ -740,10 +831,10 @@ final class Watcher {
             }
         }
 
-        if canCombineCDPTargetAndButton(in: element),
-           result.containsTarget,
+        if result.containsTarget,
            let target = result.target,
-           let button = result.button {
+           let button = result.button,
+           canCombineCDPTargetAndButton(in: element, role: role) {
             result.match = CDPPromptMatch(
                 container: element,
                 button: button,
@@ -757,7 +848,8 @@ final class Watcher {
         guard let match = findCDPPrompt(in: element, depth: 0).match else {
             return nil
         }
-        guard !wasSuccessfullyPressed(match.button) else {
+        let detectedAt = ProcessInfo.processInfo.systemUptime
+        guard !shouldDelayPress(match.button) else {
             return nil
         }
         let buttonLabel = label(of: match.button)
@@ -767,20 +859,19 @@ final class Watcher {
         if options.dryRun {
             return "match: [cdp] \(resolvedContext) / \(buttonLabel)"
         }
-        recordPressAttempt(match.button)
+        let press = recordPressAttempt(match.button, detectedAt: detectedAt)
+        configureCDPElement(match.button)
         let result = AXUIElementPerformAction(match.button, kAXPressAction as CFString)
+        let elapsed = Int((ProcessInfo.processInfo.systemUptime - press.firstDetection) * 1_000)
+        let timing = "attempt \(press.attempts) / \(elapsed)ms since detection"
         if result == .success {
-            return "clicked: [cdp] \(resolvedContext) / \(buttonLabel)"
+            return "clicked: [cdp] \(resolvedContext) / \(buttonLabel) / \(timing)"
         }
-        return "error: [cdp] press failed \(result.rawValue) / \(resolvedContext) / \(buttonLabel)"
+        return "error: [cdp] press failed \(result.rawValue) / \(resolvedContext) / \(buttonLabel) / \(timing)"
     }
 
-    func wasSuccessfullyPressed(_ button: AXUIElement) -> Bool {
-        let now = Date()
-        recentButtonPresses.removeAll {
-            now.timeIntervalSince($0.lastDate) >= 300
-                || isInvalidElement($0.button)
-        }
+    func shouldDelayPress(_ button: AXUIElement) -> Bool {
+        let now = ProcessInfo.processInfo.systemUptime
         guard let press = recentButtonPresses.first(where: {
             CFEqual($0.button, button)
         }) else {
@@ -788,34 +879,55 @@ final class Watcher {
         }
         return CDPPressPolicy.shouldSuppress(
             attempts: press.attempts,
-            elapsedSinceLastAttempt: now.timeIntervalSince(press.lastDate)
+            elapsedSinceLastAttempt: now - press.lastAttempt
         )
     }
 
-    func recordPressAttempt(_ button: AXUIElement) {
-        let now = Date()
+    @discardableResult
+    func recordPressAttempt(_ button: AXUIElement, detectedAt: TimeInterval) -> RecentButtonPress {
+        let now = ProcessInfo.processInfo.systemUptime
         if let index = recentButtonPresses.firstIndex(where: {
             CFEqual($0.button, button)
         }) {
-            recentButtonPresses[index].lastDate = now
+            recentButtonPresses[index].lastAttempt = now
             recentButtonPresses[index].attempts += 1
-            return
+            return recentButtonPresses[index]
         }
-        recentButtonPresses.append(RecentButtonPress(
+        let press = RecentButtonPress(
             button: button,
-            lastDate: now,
+            firstDetection: detectedAt,
+            lastAttempt: now,
             attempts: 1
-        ))
+        )
+        recentButtonPresses.append(press)
+        return press
+    }
+
+    func confirmCompletedPresses() {
+        let now = ProcessInfo.processInfo.systemUptime
+        recentButtonPresses.removeAll { press in
+            guard isInvalidElement(press.button) else {
+                return false
+            }
+            let elapsed = Int((now - press.firstDetection) * 1_000)
+            log("confirmed: [cdp] prompt button disappeared / \(press.attempts) attempts / \(elapsed)ms since detection")
+            return true
+        }
     }
 
     func isInvalidElement(_ element: AXUIElement) -> Bool {
+        configureCDPElement(element)
         var value: CFTypeRef?
         let result = AXUIElementCopyAttributeValue(
             element,
             kAXRoleAttribute as CFString,
             &value
         )
-        return result == .invalidUIElement || result == .invalidUIElementObserver
+        return CDPPressPolicy.confirmsDisappearance(result)
+    }
+
+    func configureCDPElement(_ element: AXUIElement) {
+        AXUIElementSetMessagingTimeout(element, CDPPressPolicy.messagingTimeout)
     }
 
     func scanHomebrewGatekeeper(app: NSRunningApplication) -> String? {

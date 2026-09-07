@@ -13,10 +13,10 @@ cask "cdpclick" do
   binary "#{appdir}/AutoClickCDPPopup.app/Contents/Resources/cdpclick-install-agent"
   binary "#{appdir}/AutoClickCDPPopup.app/Contents/Resources/cdpclick-uninstall-agent"
 
-  postflight do
-    system_command "/usr/bin/xattr",
-                   args: ["-dr", "com.apple.quarantine", "#{appdir}/AutoClickCDPPopup.app"],
-                   sudo: false
+  postflight_steps do
+    run "/usr/bin/xattr",
+        args: ["-dr", "com.apple.quarantine", "{{appdir}}/AutoClickCDPPopup.app"],
+        sudo: false
   end
 
   uninstall quit:   "com.schroneko.auto-click-cdp-popup",

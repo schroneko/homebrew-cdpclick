@@ -1,12 +1,14 @@
 # cdpclick
 
-`cdpclick` is a small macOS Accessibility watcher that automatically accepts Chrome remote debugging confirmation prompts for trusted local Chrome DevTools Protocol workflows and opens the first-launch Gatekeeper confirmation for apps downloaded by Homebrew Cask.
+`cdpclick` is a small macOS helper for trusted local browser workflows. It keeps the existing Accessibility watcher for Chrome remote debugging confirmation prompts and Homebrew Cask Gatekeeper confirmations, and it includes a Chrome extension bridge that uses `chrome.debugger` with Native Messaging inside the normal Chrome profile.
 
 It watches UI through `AXObserver`, follows process restarts, and independently checks Chrome prompts every 250 milliseconds even if no notification arrives. A separate low-frequency maintenance scan refreshes observers and checks Gatekeeper. The Chrome rule only presses an allow button when the prompt element itself contains Chrome remote debugging text such as `Allow remote debugging?`.
 
 Chrome notifications trigger an immediate check followed by short retries while the prompt becomes ready. A prompt that remains present can be retried every 500 milliseconds; two failed attempts no longer suppress it for five minutes. Disappearance is confirmed only when the Accessibility element is invalid, not when an Accessibility request temporarily fails. Completion timing in the log starts at first detection, not at the moment Chrome displayed the prompt.
 
 Loss of Accessibility permission clears the monitoring state. Monitoring is rebuilt when permission returns. These mechanisms target a response within one second while macOS and Chrome are responsive; they cannot provide a hard deadline while the machine is asleep, permission is unavailable, or Accessibility requests are stalled. Web page contents are excluded from Chrome prompt matching.
+
+The normal-profile bridge preserves the cookies, storage, and signed-in state of the Chrome profile where the extension is loaded. It does not start a second Chrome profile and it does not use an external remote-debugging approval dialog. Chrome can keep the extension and its native host running while the macOS session is locked, but an operation that requires browser UI still waits until the session is unlocked.
 
 The Homebrew Gatekeeper rule is independent from the Chrome targets and buttons. It only presses the system-localized Open button when every condition below is satisfied:
 
@@ -55,6 +57,14 @@ After installing the LaunchAgent, grant Accessibility permission to `AutoClickCD
 System Settings -> Privacy & Security -> Accessibility
 ```
 
+Install the normal-profile bridge host, then load the bundled extension once from Chrome's extension manager:
+
+```bash
+cdpclick-install-chrome-bridge
+```
+
+Open `chrome://extensions`, enable Developer mode, choose Load unpacked, and select the path printed by the command. The extension ID is fixed so the Native Messaging host remains authorized across reloads. The extension must be loaded in the same normal Chrome profile whose authentication should be used.
+
 The release app is signed with a stable local identity when available. If macOS keeps reporting missing Accessibility permission after an upgrade, remove `AutoClickCDPPopup.app` from the Accessibility list and add `/Applications/AutoClickCDPPopup.app` again.
 
 ## Usage
@@ -93,6 +103,9 @@ Read the last lines of `~/Library/Logs/auto-click-cdp-popup/actions.log`. A heal
 auto-click-cdp-popup --once --timeout 30
 auto-click-cdp-popup --dry-run --once --timeout 10
 auto-click-cdp-popup --interval 60 --log ~/Library/Logs/auto-click-cdp-popup/actions.log
+auto-click-cdp-popup --bridge-status
+auto-click-cdp-popup --bridge-request '{"id":"tabs","method":"tabs.list"}'
+auto-click-cdp-popup --bridge-request '{"id":"eval","method":"debugger.command","tabId":123,"command":"Runtime.evaluate","params":{"expression":"document.title","returnByValue":true}}'
 ```
 
 Supported options:
@@ -105,6 +118,8 @@ Supported options:
 - `--process <name>`: watch an additional macOS process name.
 - `--log <path>`: append timestamped events to a log file.
 - `--prompt-for-accessibility`: ask macOS to show the Accessibility permission prompt once.
+
+Bridge requests use a local Unix socket at `~/Library/Application Support/AutoClickCDPPopup/bridge.sock`. Supported methods are `bridge.status`, `tabs.list`, `debugger.attach`, `debugger.detach`, and `debugger.command`. The `debugger.command` method forwards the Chrome DevTools Protocol domains allowed by `chrome.debugger`, including `Runtime` and `Page`.
 
 ## Release
 

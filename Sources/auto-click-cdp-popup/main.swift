@@ -1261,6 +1261,57 @@ let axCallback: AXObserverCallback = { _, element, notification, refcon in
 
 func usage() {
     print("Usage: auto-click-cdp-popup [--once] [--dry-run] [--interval seconds] [--timeout seconds] [--max-clicks count] [--process name] [--log path] [--prompt-for-accessibility]")
+    print("       auto-click-cdp-popup --native-messaging-host")
+    print("       auto-click-cdp-popup --bridge-status [--bridge-socket path]")
+    print("       auto-click-cdp-popup --bridge-request json [--bridge-socket path]")
+}
+
+func parseBridgeCommand(_ arguments: [String]) -> (request: [String: Any], socketPath: String)? {
+    guard arguments.contains("--bridge-status") || arguments.contains("--bridge-request") else {
+        return nil
+    }
+    var args = arguments
+    var socketPath = NativeMessagingHost.defaultSocketPath
+    var request: [String: Any]?
+    while !args.isEmpty {
+        let argument = args.removeFirst()
+        switch argument {
+        case "--bridge-status":
+            request = ["method": "bridge.status"]
+        case "--bridge-request":
+            guard let value = args.first else {
+                usage()
+                exit(2)
+            }
+            args.removeFirst()
+            guard let data = value.data(using: .utf8),
+                  let object = try? JSONSerialization.jsonObject(with: data, options: []),
+                  let dictionary = object as? [String: Any] else {
+                print("Bridge request must be a JSON object")
+                exit(2)
+            }
+            request = dictionary
+        case "--bridge-socket":
+            guard let value = args.first else {
+                usage()
+                exit(2)
+            }
+            args.removeFirst()
+            socketPath = value
+        case "-h", "--help":
+            usage()
+            exit(0)
+        default:
+            print("Unknown bridge option: \(argument)")
+            usage()
+            exit(2)
+        }
+    }
+    guard let request else {
+        usage()
+        exit(2)
+    }
+    return (request, socketPath)
 }
 
 func parseOptions() -> Options {
@@ -1322,4 +1373,12 @@ func parseOptions() -> Options {
     return options
 }
 
-Watcher(options: parseOptions()).run()
+let commandLineArguments = Array(CommandLine.arguments.dropFirst())
+if commandLineArguments.contains("--native-messaging-host") || NativeMessagingHost.isNativeMessagingInvocation {
+    let host = NativeMessagingHost()
+    host.run()
+} else if let bridgeCommand = parseBridgeCommand(commandLineArguments) {
+    exit(NativeMessagingClient.request(bridgeCommand.request, socketPath: bridgeCommand.socketPath))
+} else {
+    Watcher(options: parseOptions()).run()
+}

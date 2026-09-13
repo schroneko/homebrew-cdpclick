@@ -56,5 +56,6 @@ PLIST
 plutil -lint "$plist_path"
 launchctl enable "gui/$UID/$label" >/dev/null 2>&1 || true
 launchctl bootstrap "gui/$UID" "$plist_path"
+"$app_path/Contents/Resources/cdpclick-install-chrome-bridge"
 echo "Installed LaunchAgent $label using $app_path"
 echo "Grant Accessibility permission to AutoClickCDPPopup.app in System Settings > Privacy & Security > Accessibility"

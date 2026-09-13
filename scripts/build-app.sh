@@ -16,9 +16,14 @@ mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
 cp "$binary" "$app_path/Contents/MacOS/auto-click-cdp-popup"
 cp "$repo_root/scripts/install-launch-agent.sh" "$app_path/Contents/Resources/cdpclick-install-agent"
 cp "$repo_root/scripts/uninstall-launch-agent.sh" "$app_path/Contents/Resources/cdpclick-uninstall-agent"
+cp "$repo_root/scripts/install-chrome-bridge.sh" "$app_path/Contents/Resources/cdpclick-install-chrome-bridge"
+cp "$repo_root/scripts/cdpclick-native-host.sh" "$app_path/Contents/Resources/cdpclick-native-host"
+cp -R "$repo_root/Extension" "$app_path/Contents/Resources/ChromeExtension"
 chmod 755 "$app_path/Contents/MacOS/auto-click-cdp-popup" \
   "$app_path/Contents/Resources/cdpclick-install-agent" \
-  "$app_path/Contents/Resources/cdpclick-uninstall-agent"
+  "$app_path/Contents/Resources/cdpclick-uninstall-agent" \
+  "$app_path/Contents/Resources/cdpclick-install-chrome-bridge" \
+  "$app_path/Contents/Resources/cdpclick-native-host"
 
 cat >"$app_path/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

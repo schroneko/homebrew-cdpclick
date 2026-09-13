@@ -1,4 +1,5 @@
 import ApplicationServices
+import Foundation
 import XCTest
 @testable import auto_click_cdp_popup
 
@@ -25,6 +26,29 @@ final class EventDrivenWatcherTests: XCTestCase {
 
     func testDefaultWatchdogIntervalIsSixtySeconds() {
         XCTAssertEqual(Options().interval, 60)
+    }
+
+    func testNativeMessagingFrameRoundTripUsesLittleEndianLength() throws {
+        let pipe = Pipe()
+        let object: [String: Any] = [
+            "type": "request",
+            "id": "test",
+            "method": "tabs.list"
+        ]
+        let frame = try NativeMessagingCodec.encode(object)
+        try pipe.fileHandleForWriting.write(contentsOf: frame)
+        try pipe.fileHandleForWriting.close()
+        let decoded = try NativeMessagingCodec.readMessage(from: pipe.fileHandleForReading)
+        XCTAssertEqual(decoded?["type"] as? String, "request")
+        XCTAssertEqual(decoded?["id"] as? String, "test")
+        XCTAssertEqual(decoded?["method"] as? String, "tabs.list")
+        let header = frame.prefix(4)
+        let byte0 = UInt32(header[header.startIndex])
+        let byte1 = UInt32(header[header.startIndex + 1])
+        let byte2 = UInt32(header[header.startIndex + 2])
+        let byte3 = UInt32(header[header.startIndex + 3])
+        let encodedLength = byte0 | (byte1 << 8) | (byte2 << 16) | (byte3 << 24)
+        XCTAssertEqual(encodedLength, UInt32(frame.count - 4))
     }
 
     func testPromptTextCarriersAreLimitedToNativeTextAndButtons() {

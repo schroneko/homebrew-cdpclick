@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "cdpclick Normal Chrome Bridge",
+  "version": "1.0.0",
+  "description": "Connects trusted local tools to the current Chrome profile through chrome.debugger.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwWr3xLQFFpggdW3yVeXdfUxwTK0/UJRmUxKhiA9a/WyvNgqa2bX1vkCeUbNzQRqUekDLcXgW1hoZBMaoqwlI7YHk+q/f+hY8hjit4fZb5lUptB9x6j85SGn8lHbl7zuD8o/VzOXXLXFHFpmsJt9aeJPw6i0gEuswe24uqY1luZetgfEFNwecJ95hBZpEgZth7kTfbCJFqZ5B3dPgy9O9ziWhkfBDrOQYpd/PolO5E0COoy5MIuDv1KfYn1x30yw2hQ1TvSwgS3yzBkyDT6bfLq671Oosbax2TUCKUBkkS/C1o0z1GCvQFGXneVgup499h4K0PWHIa8HIH3y8sXHJxQIDAQAB",
+  "permissions": [
+    "debugger",
+    "nativeMessaging",
+    "tabs"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "action": {
+    "default_title": "cdpclick Normal Chrome Bridge"
+  }
+}

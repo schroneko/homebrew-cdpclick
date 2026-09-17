@@ -93,9 +93,10 @@ Confirm the watcher is running:
 
 ```bash
 pgrep -fl AutoClickCDPPopup
+launchctl print "gui/$UID/com.schroneko.auto-click-cdp-popup"
 ```
 
-Read the last lines of `~/Library/Logs/auto-click-cdp-popup/actions.log`. A healthy watcher logs `started: watching Chrome CDP prompts and Homebrew Gatekeeper confirmations`. Match and click entries include `[cdp]` or `[homebrew-gatekeeper]` so the rule is identifiable. Repeated `waiting: Accessibility permission is required` means the Accessibility permission is missing; re-grant it in System Settings.
+The LaunchAgent should show `state = running` and the watcher executable as its program. Read the last lines of `~/Library/Logs/auto-click-cdp-popup/actions.log`. A healthy watcher logs `started: watching Chrome CDP prompts and Homebrew Gatekeeper confirmations`. Match and click entries include `[cdp]` or `[homebrew-gatekeeper]` so the rule is identifiable. Repeated `waiting: Accessibility permission is required` means the Accessibility permission is missing; re-grant it in System Settings.
 
 ## Options
 

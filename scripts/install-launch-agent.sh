@@ -30,15 +30,14 @@ cat >"$plist_path" <<PLIST
   <string>$label</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/open</string>
-    <string>-gj</string>
-    <string>$app_path</string>
-    <string>--args</string>
+    <string>$watcher_path</string>
     <string>--interval</string>
     <string>60</string>
     <string>--log</string>
     <string>$log_dir/actions.log</string>
   </array>
+  <key>KeepAlive</key>
+  <true/>
   <key>RunAtLoad</key>
   <true/>
   <key>StandardOutPath</key>

@@ -31,22 +31,19 @@ Each native element is visited at most once per window scan. Cyclic Accessibilit
 
 ```bash
 brew install --cask schroneko/cdpclick/cdpclick
-cdpclick-install-agent
 ```
 
-Homebrew is the only supported installation and upgrade path. For an existing installation, update the tap and upgrade the Cask:
+Homebrew is the only supported installation and upgrade path. Installation, upgrade, and reinstall automatically install and start the login agent and restore the normal-profile bridge host registration. The login agent uses `RunAtLoad` and `KeepAlive` to start at login and restart if it exits. For an existing installation, update the tap and upgrade the Cask:
 
 ```bash
 brew update
 brew upgrade --cask --no-ask schroneko/cdpclick/cdpclick
-cdpclick-install-agent
 ```
 
 If the installed version is already the desired release and the app needs to be restored, use a Cask reinstall:
 
 ```bash
 brew reinstall --cask --no-ask schroneko/cdpclick/cdpclick
-cdpclick-install-agent
 ```
 
 Do not copy, move, or overlay a build artifact directly into `/Applications`. Do not replace a Homebrew-managed app with a same-version local build. Publish a new release and update the Cask before upgrading through Homebrew.
@@ -57,19 +54,13 @@ After installing the LaunchAgent, grant Accessibility permission to `AutoClickCD
 System Settings -> Privacy & Security -> Accessibility
 ```
 
-Install the normal-profile bridge host, then load the bundled extension once from Chrome's extension manager:
-
-```bash
-cdpclick-install-chrome-bridge
-```
-
-Open `chrome://extensions`, enable Developer mode, choose Load unpacked, and select the path printed by the command. The extension ID is fixed so the Native Messaging host remains authorized across reloads. The extension must be loaded in the same normal Chrome profile whose authentication should be used.
+The normal-profile bridge host is registered automatically. Load the bundled extension once from Chrome's extension manager: open `chrome://extensions`, enable Developer mode, choose Load unpacked, and select `/Applications/AutoClickCDPPopup.app/Contents/Resources/ChromeExtension`. The extension ID is fixed so the Native Messaging host remains authorized across reloads. The extension must be loaded in the same normal Chrome profile whose authentication should be used.
 
 The release app is signed with a stable local identity when available. If macOS keeps reporting missing Accessibility permission after an upgrade, remove `AutoClickCDPPopup.app` from the Accessibility list and add `/Applications/AutoClickCDPPopup.app` again.
 
 ## Usage
 
-Install and start the login agent:
+Manually repair and start the login agent and bridge host registration:
 
 ```bash
 cdpclick-install-agent
@@ -142,7 +133,7 @@ brew style Casks/cdpclick.rb
 brew audit --cask --strict schroneko/cdpclick/cdpclick
 ```
 
-Consumers should run `brew update`, `brew upgrade --cask --no-ask schroneko/cdpclick/cdpclick`, and `cdpclick-install-agent` to receive the release. After installation, verify `brew list --cask --versions cdpclick`, the Caskroom version directory, the app bundle version, and the running process before reporting the update complete.
+Consumers should run `brew update` and `brew upgrade --cask --no-ask schroneko/cdpclick/cdpclick` to receive the release. The Cask automatically restores and starts the login agent and registers the bridge host. After installation, verify `brew list --cask --versions cdpclick`, the Caskroom version directory, the app bundle version, and the running process before reporting the update complete.
 
 ## Build
 

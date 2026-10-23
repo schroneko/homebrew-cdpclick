@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+task_user_home="$(/usr/bin/dscacheutil -q user -a uid "$UID" | /usr/bin/sed -n 's/^dir: //p')"
+if [[ -z "$task_user_home" ]]; then
+  echo "Unable to resolve the account home directory for uid $UID" >&2
+  exit 1
+fi
+
 host_name="com.schroneko.autoclickcdppopup.bridge"
 extension_id="emfpblpnedhhgjgmdlbipkfbockgofjp"
 app_path="${CDPCLICK_APP_PATH:-/Applications/AutoClickCDPPopup.app}"
 watcher_path="$app_path/Contents/MacOS/auto-click-cdp-popup"
 native_host_path="$app_path/Contents/Resources/cdpclick-native-host"
 extension_path="$app_path/Contents/Resources/ChromeExtension"
-chrome_support="$HOME/Library/Application Support/Google/Chrome"
+chrome_support="$task_user_home/Library/Application Support/Google/Chrome"
 host_directory="$chrome_support/NativeMessagingHosts"
 host_manifest="$host_directory/$host_name.json"
 legacy_host_manifest="$host_directory/com.schroneko.auto-click-cdp-popup.bridge.json"

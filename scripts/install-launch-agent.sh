@@ -4,8 +4,15 @@ set -euo pipefail
 label="com.schroneko.auto-click-cdp-popup"
 app_path="/Applications/AutoClickCDPPopup.app"
 watcher_path="$app_path/Contents/MacOS/auto-click-cdp-popup"
-plist_path="$HOME/Library/LaunchAgents/$label.plist"
-log_dir="$HOME/Library/Logs/auto-click-cdp-popup"
+task_user_home="$(/usr/bin/dscacheutil -q user -a uid "$UID" | /usr/bin/sed -n 's/^dir: //p')"
+
+if [[ -z "$task_user_home" ]]; then
+  echo "Could not resolve the home directory for user ID $UID" >&2
+  exit 1
+fi
+
+plist_path="$task_user_home/Library/LaunchAgents/$label.plist"
+log_dir="$task_user_home/Library/Logs/auto-click-cdp-popup"
 
 if [[ ! -x "$watcher_path" ]]; then
   echo "AutoClickCDPPopup.app is not installed at $app_path" >&2
@@ -19,7 +26,7 @@ fi
 
 pkill -f "AutoClickCDPPopup.app/Contents/MacOS/auto-click-cdp-popup" >/dev/null 2>&1 || true
 
-mkdir -p "$HOME/Library/LaunchAgents" "$log_dir"
+mkdir -p "$task_user_home/Library/LaunchAgents" "$log_dir"
 
 cat >"$plist_path" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

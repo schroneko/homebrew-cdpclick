@@ -61,7 +61,7 @@ cat >"$host_manifest" <<MANIFEST
 }
 MANIFEST
 
-node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$host_manifest"
+/usr/bin/plutil -convert xml1 -o /dev/null "$host_manifest"
 echo "Installed Chrome Native Messaging host $host_name"
 echo "Load this unpacked extension in the normal Chrome profile: $extension_path"
 echo "Chrome extensions page: chrome://extensions"

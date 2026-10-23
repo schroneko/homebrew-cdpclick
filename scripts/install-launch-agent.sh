@@ -3,7 +3,19 @@ set -euo pipefail
 
 label="com.schroneko.auto-click-cdp-popup"
 app_path="/Applications/AutoClickCDPPopup.app"
+prepare_install=false
+
+if [[ "$#" -gt 0 ]]; then
+  if [[ "$#" -ne 2 || "$1" != "--prepare-install" || "$2" != /*/AutoClickCDPPopup.app ]]; then
+    echo "Usage: $0 [--prepare-install /absolute/path/AutoClickCDPPopup.app]" >&2
+    exit 2
+  fi
+  prepare_install=true
+  app_path="$2"
+fi
+
 watcher_path="$app_path/Contents/MacOS/auto-click-cdp-popup"
+script_directory="$(/usr/bin/dirname "${BASH_SOURCE[0]}")"
 task_user_home="$(/usr/bin/dscacheutil -q user -a uid "$UID" | /usr/bin/sed -n 's/^dir: //p')"
 
 if [[ -z "$task_user_home" ]]; then
@@ -14,7 +26,12 @@ fi
 plist_path="$task_user_home/Library/LaunchAgents/$label.plist"
 log_dir="$task_user_home/Library/Logs/auto-click-cdp-popup"
 
-if [[ ! -x "$watcher_path" ]]; then
+if [[ "$prepare_install" == true ]]; then
+  if [[ ! -x "$script_directory/../MacOS/auto-click-cdp-popup" ]]; then
+    echo "Bundled watcher is missing beside $script_directory" >&2
+    exit 1
+  fi
+elif [[ ! -x "$watcher_path" ]]; then
   echo "AutoClickCDPPopup.app is not installed at $app_path" >&2
   echo "Install it with: brew install --cask schroneko/cdpclick/cdpclick" >&2
   exit 1
@@ -62,6 +79,10 @@ PLIST
 plutil -lint "$plist_path"
 launchctl enable "gui/$UID/$label" >/dev/null 2>&1 || true
 launchctl bootstrap "gui/$UID" "$plist_path"
-"$app_path/Contents/Resources/cdpclick-install-chrome-bridge"
+if [[ "$prepare_install" == true ]]; then
+  CDPCLICK_APP_PATH="$app_path" "$script_directory/cdpclick-install-chrome-bridge" --prepare-install
+else
+  "$app_path/Contents/Resources/cdpclick-install-chrome-bridge"
+fi
 echo "Installed LaunchAgent $label using $app_path"
 echo "Grant Accessibility permission to AutoClickCDPPopup.app in System Settings > Privacy & Security > Accessibility"
